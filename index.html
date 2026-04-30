@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buscador de Remisiones</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1f1f1f;
+    --border: #2a2a2a;
+    --accent: #e8ff47;
+    --accent-dim: rgba(232,255,71,0.12);
+    --text: #f0f0f0;
+    --muted: #666;
+    --muted2: #444;
+    --success: #4ade80;
+    --error: #f87171;
+    --warning: #fb923c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 999;
+  }
+  header {
+    padding: 22px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0;
+    background: rgba(13,13,13,0.95);
+    backdrop-filter: blur(12px);
+    z-index: 50;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-text { font-family:'Syne',sans-serif; font-weight:800; font-size:1.05rem; letter-spacing:-0.02em; }
+  .logo-text span { color: var(--accent); }
+  .header-right { font-size:0.75rem; color:var(--muted); display:flex; align-items:center; gap:8px; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--success); animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .hero {
+    padding: 70px 40px 50px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 36px; text-align: center;
+  }
+  .hero-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.72rem; font-family:'Syne',sans-serif; font-weight:600;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-dim);
+    border: 1px solid rgba(232,255,71,0.25);
+    padding: 6px 14px; border-radius: 20px;
+  }
+  .hero h1 {
+    font-family:'Syne',sans-serif; font-weight:800;
+    font-size: clamp(2rem,5vw,3.2rem);
+    line-height:1.05; letter-spacing:-0.03em; max-width:580px;
+  }
+  .hero h1 em { font-style:normal; color:var(--accent); }
+  .hero p { font-size:0.95rem; color:var(--muted); max-width:400px; line-height:1.6; }
+
+  .search-wrap { width:100%; max-width:540px; display:flex; flex-direction:column; gap:12px; }
+  .search-box {
+    display:flex; background:var(--surface);
+    border:1.5px solid var(--border); border-radius:14px; overflow:hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .search-box:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(232,255,71,0.08);
+  }
+  .search-box input {
+    flex:1; background:transparent; border:none;
+    padding:18px 22px;
+    font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:700;
+    color:var(--text); letter-spacing:0.06em; outline:none;
+  }
+  .search-box input::placeholder {
+    color:var(--muted2); font-weight:400; font-size:1rem;
+    font-family:'DM Sans',sans-serif; letter-spacing:0;
+  }
+  .search-btn {
+    margin:8px; padding:0 24px;
+    background:var(--accent); color:#0d0d0d; border:none; border-radius:8px;
+    font-family:'Syne',sans-serif; font-weight:700; font-size:0.88rem;
+    letter-spacing:0.05em; cursor:pointer; transition:all 0.15s;
+    white-space:nowrap; min-width:90px;
+  }
+  .search-btn:hover { background:#d4eb2e; transform:scale(1.02); }
+  .search-btn:active { transform:scale(0.98); }
+  .search-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+  .search-hint { font-size:0.78rem; color:var(--muted); text-align:center; }
+
+  .result-section {
+    padding:0 40px 60px;
+    display:flex; flex-direction:column; align-items:center; gap:20px;
+  }
+  .status {
+    width:100%; max-width:880px; border-radius:12px;
+    padding:18px 22px; font-size:0.9rem;
+    display:flex; align-items:center; gap:14px;
+    animation:fadeUp 0.3s ease;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .status.loading   { background:var(--surface); border:1px solid var(--border); color:var(--muted); }
+  .status.error     { background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.25); color:var(--error); }
+  .status.not-found { background:rgba(251,146,60,0.08); border:1px solid rgba(251,146,60,0.2); color:var(--warning); }
+  .spinner { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; flex-shrink:0; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  .result-card {
+    width:100%; max-width:880px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:16px; overflow:hidden; animation:fadeUp 0.35s ease;
+  }
+  .result-header {
+    padding:18px 26px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; gap:12px;
+  }
+  .result-folio { display:flex; align-items:center; gap:12px; }
+  .folio-badge {
+    background:var(--accent-dim); border:1px solid rgba(232,255,71,0.3);
+    color:var(--accent); font-family:'Syne',sans-serif; font-weight:700;
+    font-size:1.1rem; padding:6px 16px; border-radius:8px; letter-spacing:0.05em;
+  }
+  .found-label { display:flex; align-items:center; gap:6px; font-size:0.82rem; color:var(--success); font-weight:500; }
+  .found-label::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--success); }
+  .result-actions { display:flex; gap:10px; flex-wrap:wrap; }
+  .btn-action {
+    padding:10px 18px; border-radius:8px;
+    font-family:'Syne',sans-serif; font-weight:600; font-size:0.82rem;
+    border:none; cursor:pointer; transition:all 0.15s; letter-spacing:0.03em;
+    display:flex; align-items:center; gap:7px; text-decoration:none;
+  }
+  .btn-excel { background:var(--accent); color:#0d0d0d; }
+  .btn-excel:hover { background:#d4eb2e; }
+  .btn-pdf { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .btn-pdf:hover { border-color:var(--accent); color:var(--accent); }
+
+  .preview-wrap {
+    position:relative; background:#111;
+    min-height:580px; display:flex; align-items:center; justify-content:center;
+  }
+  .preview-wrap iframe { width:100%; height:620px; border:none; display:block; }
+  .preview-loading {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; color:var(--muted); font-size:0.85rem;
+  }
+
+  .instructions {
+    width:100%; max-width:880px;
+    display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:10px;
+  }
+  .inst-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:22px 18px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .inst-num { font-family:'Syne',sans-serif; font-size:2rem; font-weight:800; color:var(--muted2); line-height:1; }
+  .inst-title { font-family:'Syne',sans-serif; font-weight:600; font-size:0.88rem; }
+  .inst-desc  { font-size:0.78rem; color:var(--muted); line-height:1.5; }
+
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)}
+    40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)}
+  }
+  @media(max-width:700px){
+    header,.hero,.result-section{padding-left:18px;padding-right:18px;}
+    .hero{padding-top:44px;padding-bottom:36px;}
+    .instructions{grid-template-columns:1fr;}
+    .result-header{flex-direction:column;align-items:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0d0d0d" stroke-width="2.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+    </div>
+    <div class="logo-text">Remisiones<span>.</span></div>
+  </div>
+  <div class="header-right">
+    <div class="dot"></div>
+    Conectado a Google Drive
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-label">🔍 Buscador interno</div>
+  <h1>Encuentra tu<br><em>remisión</em> al instante</h1>
+  <p>Escribe el número de folio y obtén la remisión en segundos.</p>
+
+  <div class="search-wrap">
+    <div class="search-box">
+      <input
+        type="text"
+        id="folioInput"
+        placeholder="Ej: 12345"
+        inputmode="numeric"
+        maxlength="20"
+        onkeydown="if(event.key==='Enter') buscar()"
+      />
+      <button class="search-btn" onclick="buscar()" id="searchBtn">BUSCAR</button>
+    </div>
+    <div class="search-hint">Solo el número — sin extensión ni prefijos</div>
+  </div>
+</section>
+
+<section class="result-section">
+  <div class="instructions" id="instrucciones">
+    <div class="inst-card">
+      <div class="inst-num">01</div>
+      <div class="inst-title">Escribe el folio</div>
+      <div class="inst-desc">Ingresa el número de la remisión. Solo dígitos, sin puntos ni guiones.</div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-num">02</div>
+      <div class="inst-title">Vista previa</div>
+      <div class="inst-desc">La remisión aparece al instante para revisarla antes de descargar.</div>
+    </div>
+    <div class="inst-card">
+      <div class="inst-num">03</div>
+      <div class="inst-title">Descarga</div>
+      <div class="inst-desc">Descarga el PDF original o exporta los datos a Excel con un clic.</div>
+    </div>
+  </div>
+  <div id="statusMsg" style="display:none"></div>
+  <div id="resultCard" style="display:none"></div>
+</section>
+
+<script>
+  // ── JSONP: evita el bloqueo CORS del navegador ──────────────────
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxWLbjlbaASoA94Y-EnJZ2FyTfh1MLGyXrsMh8fWmd3auMTYxCdCRvzl_TwcwJ6Cx5N/exec';
+
+  function jsonp(url) {
+    return new Promise((resolve, reject) => {
+      const cbName = '__cb_' + Date.now();
+      const script = document.createElement('script');
+      const timer  = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timeout'));
+      }, 12000);
+
+      window[cbName] = (data) => { cleanup(); resolve(data); };
+
+      function cleanup() {
+        clearTimeout(timer);
+        delete window[cbName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      script.onerror = () => { cleanup(); reject(new Error('Script error')); };
+      script.src = `${url}&callback=${cbName}`;
+      document.head.appendChild(script);
+    });
+  }
+  // ────────────────────────────────────────────────────────────────
+
+  async function buscar() {
+    const raw   = document.getElementById('folioInput').value.trim();
+    const folio = raw.replace(/\D/g, '');
+    if (!folio) { shake(); return; }
+
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    ocultarInstrucciones();
+    mostrarLoading(`Buscando remisión <strong>${folio}</strong>...`);
+
+    try {
+      const data = await jsonp(`${SCRIPT_URL}?folio=${encodeURIComponent(folio)}`);
+      if (data.found) {
+        mostrarResultado(folio, data);
+      } else {
+        mostrarNoEncontrado(folio);
+      }
+    } catch (err) {
+      mostrarError('No se pudo conectar con el servidor. Intenta de nuevo en unos segundos.');
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'BUSCAR';
+    }
+  }
+
+  function mostrarLoading(msg) {
+    const s = document.getElementById('statusMsg');
+    s.style.display = 'flex'; s.className = 'status loading';
+    s.innerHTML = `<div class="spinner"></div><span>${msg}</span>`;
+    document.getElementById('resultCard').style.display = 'none';
+  }
+  function mostrarError(msg) {
+    const s = document.getElementById('statusMsg');
+    s.style.display = 'flex'; s.className = 'status error';
+    s.innerHTML = `<span>⚠️</span><span>${msg}</span>`;
+    document.getElementById('resultCard').style.display = 'none';
+  }
+  function mostrarNoEncontrado(folio) {
+    const s = document.getElementById('statusMsg');
+    s.style.display = 'flex'; s.className = 'status not-found';
+    s.innerHTML = `<span>📭</span><span>No se encontró la remisión <strong>${folio}</strong>. Verifica el número o que el PDF esté en Drive.</span>`;
+    document.getElementById('resultCard').style.display = 'none';
+  }
+
+  function mostrarResultado(folio, file) {
+    document.getElementById('statusMsg').style.display = 'none';
+    const card = document.getElementById('resultCard');
+    card.style.display = 'block';
+    card.innerHTML = `
+      <div class="result-header">
+        <div class="result-folio">
+          <div class="folio-badge">${folio}</div>
+          <div class="found-label">Remisión encontrada</div>
+        </div>
+        <div class="result-actions">
+          <button class="btn-action btn-excel" onclick="descargarExcel('${folio}','${file.download}','${file.url}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Descargar Excel
+          </button>
+          <a href="${file.download}" target="_blank" class="btn-action btn-pdf">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Descargar PDF
+          </a>
+        </div>
+      </div>
+      <div class="preview-wrap">
+        <div class="preview-loading" id="previewLoading">
+          <div class="spinner" style="width:28px;height:28px;border-width:3px"></div>
+          <span>Cargando vista previa...</span>
+        </div>
+        <iframe src="${file.preview}"
+          onload="document.getElementById('previewLoading').style.display='none'"
+          allow="autoplay">
+        </iframe>
+      </div>
+    `;
+  }
+
+  function descargarExcel(folio, download, url) {
+    const fecha = new Date().toLocaleDateString('es-MX', {day:'2-digit',month:'long',year:'numeric'});
+    const BOM = '\uFEFF';
+    const csv = ['Folio,Fecha de consulta,Descargar PDF,Ver en Drive',
+      `${folio},${fecha},${download},${url}`].join('\n');
+    const blob = new Blob([BOM + csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `Remision_${folio}.csv`; a.click();
+  }
+
+  function ocultarInstrucciones() {
+    const el = document.getElementById('instrucciones');
+    if (el) el.style.display = 'none';
+  }
+  function shake() {
+    const box = document.querySelector('.search-box');
+    box.style.animation = 'none'; box.offsetHeight; box.style.animation = 'shake 0.4s ease';
+  }
+
+  document.getElementById('folioInput').focus();
+</script>
+</body>
+</html>
